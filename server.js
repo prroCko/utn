@@ -1,10 +1,11 @@
-const express = require('express')
-const bcrypt = require('bcrypt')
-const jwt = require("jsonwebtoken")
-const mongoose = require("mongoose")
+const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+require("dotenv").config();
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
 // status
 app.get("/", (req, res) => {
@@ -12,12 +13,11 @@ app.get("/", (req, res) => {
 })
 
 const connectDb = async () => {
-  await mongoose.connect("mongodb://127.0.0.1:27017/catalogo-de-juegos")
-  console.log("✅ Conectado a MongoDB con éxito")
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log("✅ Conectado a MongoDB")
 }
 
 // Creación de esquema de Mongodb
-// los datos que voy agregar estarán basados en estas validaciones
 const gameSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, default: 0 },
@@ -37,19 +37,18 @@ const userSchema = new mongoose.Schema({
 })
 
 // modelo un un objeto que nos da acceso a los métodos de mongodb
-// findByIdAndUpdate() 
-const Game = mongoose.model("Game", gameSchema)
-const User = mongoose.model("User", userSchema)
+const Game = mongoose.model("Game", gameSchema);
+const User = mongoose.model("User", userSchema);
 
 const authMiddleware = (req, res, next) => {
-  // ✅ validar el token -> validar la sesión
+
   const token = req.headers.authorization
 
   if (!token) {
     return res.status(401).json({ status: "Se necesita el permiso" })
   }
 
-  const decoded = jwt.verify(token, "CLAVE_SECRETA")
+  const decoded = jwt.verify(token, process.env.JWT_SECRET)
   next();
 }
 
@@ -91,7 +90,7 @@ app.post("/auth/login", async (req, res) => {
     return res.status(401).json({ status: "Usuario no encontrado, credenciales invalidas" })
   }
 
-  const token = jwt.sign({ id: user.id, email: user.email }, "CLAVE_SECRETA", { expiresIn: "1h" })
+  const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" })
 
   res.json({ token })
 })
@@ -109,7 +108,7 @@ app.post("/games", authMiddleware, async (req, res) => {
   const { name, price, space, description, genre } = body
 
   if (!name || !price || !space || !description || !genre) {
-    return response.status(400).json({ status: "Data invalida, intentalo nuevamente" })
+    return res.status(400).json({ status: "Data invalida, intentalo nuevamente" })
   }
 
   const newGame = new Game({
@@ -149,7 +148,7 @@ app.delete("/games/:id", authMiddleware, async (req, res) => {
   res.json(deletedGame)
 })
 
-app.listen(3000, () => {
+app.listen(process.env.PORT, () => {
   connectDb()
   console.log(`Server conectado en http://localhost:3000`)
 })
